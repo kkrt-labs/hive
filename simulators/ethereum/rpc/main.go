@@ -64,7 +64,7 @@ var tests = []testSpec{
 	// HTTP ABI tests.
 	{Name: "http/ABICall", Run: callContractTest},
 	{Name: "http/ABITransact", Run: transactContractTest},
-
+// Disable WS tests as it's not yet implemented for Kakarot RPC
 	// // WebSocket RPC tests.
 	// {Name: "ws/BalanceAndNonceAt", Run: balanceAndNonceAtTest},
 	// {Name: "ws/CanonicalChain", Run: canonicalChainTest},
