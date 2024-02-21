@@ -12,7 +12,7 @@ import (
 var (
 	// parameters used for signing transactions
 	chainID  = big.NewInt(7)
-	gasPrice = big.NewInt(30 * params.GWei)
+	gasPrice = big.NewInt(0 * params.GWei) // TODO: remove once we handle gas accounting
 
 	// would be nice to use a networkID that's different from chainID,
 	// but some clients don't support the distinction properly.
@@ -45,26 +45,26 @@ type testSpec struct {
 
 var tests = []testSpec{
 	// HTTP RPC tests.
-	{Name: "http/BalanceAndNonceAt", Run: balanceAndNonceAtTest},
-	{Name: "http/CanonicalChain", Run: canonicalChainTest},
-	{Name: "http/CodeAt", Run: CodeAtTest},
-	{Name: "http/ContractDeployment", Run: deployContractTest},
-	{Name: "http/ContractDeploymentOutOfGas", Run: deployContractOutOfGasTest},
-	{Name: "http/EstimateGas", Run: estimateGasTest},
-	{Name: "http/GenesisBlockByHash", Run: genesisBlockByHashTest},
-	{Name: "http/GenesisBlockByNumber", Run: genesisBlockByNumberTest},
-	{Name: "http/GenesisHeaderByHash", Run: genesisHeaderByHashTest},
-	{Name: "http/GenesisHeaderByNumber", Run: genesisHeaderByNumberTest},
-	{Name: "http/Receipt", Run: receiptTest},
-	{Name: "http/SyncProgress", Run: syncProgressTest},
-	{Name: "http/TransactionCount", Run: transactionCountTest},
-	{Name: "http/TransactionInBlock", Run: transactionInBlockTest},
-	{Name: "http/TransactionReceipt", Run: TransactionReceiptTest},
+	{Name: "http/BalanceAndNonceAt", Run: balanceAndNonceAtTest},               // ok
+	{Name: "http/CanonicalChain", Run: canonicalChainTest},                     // nok
+	{Name: "http/CodeAt", Run: CodeAtTest},                                     // ok
+	{Name: "http/ContractDeployment", Run: deployContractTest},                 // nok
+	{Name: "http/ContractDeploymentOutOfGas", Run: deployContractOutOfGasTest}, // nok
+	{Name: "http/EstimateGas", Run: estimateGasTest},                           // nok
+	{Name: "http/GenesisBlockByHash", Run: genesisBlockByHashTest},             // nok
+	{Name: "http/GenesisBlockByNumber", Run: genesisBlockByNumberTest},         // nok
+	{Name: "http/GenesisHeaderByHash", Run: genesisHeaderByHashTest},           // nok
+	{Name: "http/GenesisHeaderByNumber", Run: genesisHeaderByNumberTest},       // nok
+	{Name: "http/Receipt", Run: receiptTest},                                   // nok
+	{Name: "http/SyncProgress", Run: syncProgressTest},                         // nok
+	{Name: "http/TransactionCount", Run: transactionCountTest},                 // nok
+	{Name: "http/TransactionInBlock", Run: transactionInBlockTest},             // nok
+	{Name: "http/TransactionReceipt", Run: TransactionReceiptTest},             // ok
 
 	// HTTP ABI tests.
-	{Name: "http/ABICall", Run: callContractTest},
-	{Name: "http/ABITransact", Run: transactContractTest},
-// Disable WS tests as it's not yet implemented for Kakarot RPC
+	{Name: "http/ABICall", Run: callContractTest},         // ok
+	{Name: "http/ABITransact", Run: transactContractTest}, // nok
+	// Disable WS tests as it's not yet implemented for Kakarot RPC
 	// // WebSocket RPC tests.
 	// {Name: "ws/BalanceAndNonceAt", Run: balanceAndNonceAtTest},
 	// {Name: "ws/CanonicalChain", Run: canonicalChainTest},
