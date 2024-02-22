@@ -292,7 +292,7 @@ func canonicalChainTest(t *TestEnv) {
 	for {
 		latestBlock, err := t.Eth.BlockByNumber(t.Ctx(), nil)
 		if err != nil {
-			t.Fatalf("Unable to fetch latest block")
+			t.Fatalf("Unable to fetch latest block: %v", err)
 		}
 		if latestBlock.NumberU64() >= 20 {
 			break
@@ -300,17 +300,20 @@ func canonicalChainTest(t *TestEnv) {
 		time.Sleep(time.Second)
 	}
 
-	var childBlock *types.Block
+	// var childBlock *types.Block
 	for i := 10; i >= 0; i-- {
 		block, err := t.Eth.BlockByNumber(t.Ctx(), big.NewInt(int64(i)))
 		if err != nil {
 			t.Fatalf("Unable to fetch block #%d", i)
 		}
-		if childBlock != nil {
-			if childBlock.ParentHash() != block.Hash() {
-				t.Errorf("Canonical chain broken on %d-%d / %x-%x", block.NumberU64(), childBlock.NumberU64(), block.Hash(), childBlock.Hash())
-			}
-		}
+		// We can't sure go-ethereum's ParentHash() and Hash() methods as they compute the Ethereum block hash (keccak(RLP(header))).
+		// Whereas our blocks have a Starknet blockhash.
+		// For now we skip this consistency check
+		// if childBlock != nil {
+			// if childBlock.ParentHash() != block.Hash() {
+			// 	t.Errorf("Canonical chain broken on %d-%d / %x-%x", block.NumberU64(), childBlock.NumberU64(), block.Hash(), childBlock.Hash())
+			// }
+		// }
 
 		// try to fetch all txs and receipts and do some basic validation on them
 		// to check if the fetched chain is consistent.
@@ -345,7 +348,7 @@ func canonicalChainTest(t *TestEnv) {
 			}
 		}
 
-		childBlock = block
+		// childBlock = block
 	}
 }
 
