@@ -225,19 +225,24 @@ func balanceAndNonceAtTest(t *TestEnv) {
 	}
 }
 
+// 🚧 WARNING KAKAROT 🚧
+// Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
+// examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
+//
+//
 // genesisByHash fetches the known genesis header and compares
 // it against the genesis file to determine if block fields are
 // returned correct.
 func genesisHeaderByHashTest(t *TestEnv) {
-	gblock := loadGenesis()
+	// gblock := loadGenesis()
 
-	headerByHash, err := t.Eth.HeaderByHash(t.Ctx(), gblock.Hash())
-	if err != nil {
-		t.Fatalf("Unable to fetch block %x: %v", gblock.Hash(), err)
-	}
-	if d := diff(gblock.Header(), headerByHash); d != "" {
-		t.Fatal("genesis header reported by node differs from expected header:\n", d)
-	}
+	// headerByHash, err := t.Eth.HeaderByHash(t.Ctx(), gblock.Hash())
+	// if err != nil {
+	// 	t.Fatalf("Unable to fetch block %x: %v", gblock.Hash(), err)
+	// }
+	// if d := diff(gblock.Header(), headerByHash); d != "" {
+	// 	t.Fatal("genesis header reported by node differs from expected header:\n", d)
+	// }
 }
 
 // 🚧 WARNING KAKAROT 🚧
@@ -260,33 +265,43 @@ func genesisHeaderByNumberTest(t *TestEnv) {
 // 	}
 }
 
+// 🚧 WARNING KAKAROT 🚧
+// Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
+// examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
+//
+//
 // genesisBlockByHashTest fetched the known genesis block and compares it against
 // the genesis file to determine if block fields are returned correct.
 func genesisBlockByHashTest(t *TestEnv) {
-	gblock := loadGenesis()
+	// gblock := loadGenesis()
 
-	blockByHash, err := t.Eth.BlockByHash(t.Ctx(), gblock.Hash())
-	if err != nil {
-		t.Fatalf("Unable to fetch block %x: %v", gblock.Hash(), err)
-	}
-	if d := diff(gblock.Header(), blockByHash.Header()); d != "" {
-		t.Fatal("genesis header reported by node differs from expected header:\n", d)
-	}
+	// blockByHash, err := t.Eth.BlockByHash(t.Ctx(), gblock.Hash())
+	// if err != nil {
+	// 	t.Fatalf("Unable to fetch block %x: %v", gblock.Hash(), err)
+	// }
+	// if d := diff(gblock.Header(), blockByHash.Header()); d != "" {
+	// 	t.Fatal("genesis header reported by node differs from expected header:\n", d)
+	// }
 }
 
+// 🚧 WARNING KAKAROT 🚧
+// Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
+// examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
+//
+//
 // genesisBlockByNumberTest retrieves block 0 since that is the only block
 // that is known through the genesis.json file and tests if block
 // fields matches the fields defined in the genesis file.
 func genesisBlockByNumberTest(t *TestEnv) {
-	gblock := loadGenesis()
+	// gblock := loadGenesis()
 
-	blockByNum, err := t.Eth.BlockByNumber(t.Ctx(), big0)
+	_, err := t.Eth.BlockByNumber(t.Ctx(), big0)
 	if err != nil {
 		t.Fatalf("Unable to fetch genesis block: %v", err)
 	}
-	if d := diff(gblock.Header(), blockByNum.Header()); d != "" {
-		t.Fatal("genesis header reported by node differs from expected header:\n", d)
-	}
+	// if d := diff(gblock.Header(), blockByNum.Header()); d != "" {
+	// 	t.Fatal("genesis header reported by node differs from expected header:\n", d)
+	// }
 }
 
 // canonicalChainTest loops over 10 blocks and does some basic validations
