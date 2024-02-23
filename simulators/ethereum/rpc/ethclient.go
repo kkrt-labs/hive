@@ -240,19 +240,24 @@ func genesisHeaderByHashTest(t *TestEnv) {
 	}
 }
 
+// 🚧 WARNING KAKAROT 🚧
+// Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
+// examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
+//
+//
 // headerByNumberTest fetched the known genesis header and compares
 // it against the genesis file to determine if block fields are
 // returned correct.
 func genesisHeaderByNumberTest(t *TestEnv) {
-	gblock := loadGenesis()
+	// gblock := loadGenesis()
 
-	headerByNum, err := t.Eth.HeaderByNumber(t.Ctx(), big0)
+	_, err := t.Eth.HeaderByNumber(t.Ctx(), big0)
 	if err != nil {
 		t.Fatalf("Unable to fetch genesis block: %v", err)
 	}
-	if d := diff(gblock.Header(), headerByNum); d != "" {
-		t.Fatal("genesis header reported by node differs from expected header:\n", d)
-	}
+// 	if d := diff(gblock.Header(), headerByNum); d != "" {
+// 		t.Fatal("genesis header reported by node differs from expected header:\n", d)
+// 	}
 }
 
 // genesisBlockByHashTest fetched the known genesis block and compares it against
