@@ -306,7 +306,9 @@ func canonicalChainTest(t *TestEnv) {
 		if err != nil {
 			t.Fatalf("Unable to fetch block #%d", i)
 		}
-		// We can't sure go-ethereum's ParentHash() and Hash() methods as they compute the Ethereum block hash (keccak(RLP(header))).
+
+		// 🚧 KAKAROT WARNING 🚧
+		// We can't use go-ethereum's ParentHash() and Hash() methods as they compute the Ethereum block hash (keccak(RLP(header))).
 		// Whereas our blocks have a Starknet blockhash.
 		// For now we skip this consistency check
 		// if childBlock != nil {
@@ -620,12 +622,16 @@ func transactionInBlockTest(t *TestEnv) {
 		if len(block.Transactions()) == 0 {
 			continue
 		}
-		for i := 0; i < len(block.Transactions()); i++ {
-			_, err := t.Eth.TransactionInBlock(t.Ctx(), block.Hash(), uint(i))
-			if err != nil {
-				t.Fatalf("Unable to fetch transaction by block hash and index: %v", err)
-			}
-		}
+		// 🚧 KAKAROT WARNING 🚧
+		// We can't use go-ethereum's ParentHash() and Hash() methods as they compute the Ethereum block hash (keccak(RLP(header))).
+		// Whereas our blocks have a Starknet blockhash.
+		// For now we skip this consistency check
+		// for i := 0; i < len(block.Transactions()); i++ {
+		// 	_, err := t.Eth.TransactionInBlock(t.Ctx(), block.Hash(), uint(i))
+		// 	if err != nil {
+		// 		t.Fatalf("Unable to fetch transaction by block hash and index: %v", err)
+		// 	}
+		// }
 		return
 	}
 }
@@ -809,21 +815,25 @@ func transactionCountTest(t *TestEnv) {
 		if err = t.Eth.SendTransaction(t.Ctx(), tx); err != nil {
 			t.Fatalf("Unable to send transaction: %v", err)
 		}
-		block, err := t.Eth.BlockByNumber(t.Ctx(), nil)
-		if err != nil {
+		_, error := t.Eth.BlockByNumber(t.Ctx(), nil)
+		if error != nil {
 			t.Fatalf("Unable to retrieve latest block: %v", err)
 		}
 
-		if len(block.Transactions()) > 0 {
-			count, err := t.Eth.TransactionCount(t.Ctx(), block.Hash())
-			if err != nil {
-				t.Fatalf("Unable to retrieve block transaction count: %v", err)
-			}
-			if count != uint(len(block.Transactions())) {
-				t.Fatalf("Invalid block tx count, want %d, got %d", len(block.Transactions()), count)
-			}
-			return
-		}
+		// 🚧 KAKAROT WARNING 🚧
+		// We can't use go-ethereum's ParentHash() and Hash() methods as they compute the Ethereum block hash (keccak(RLP(header))).
+		// Whereas our blocks have a Starknet blockhash.
+		// For now we skip this consistency check
+		// if len(block.Transactions()) > 0 {
+		// 	count, err := t.Eth.TransactionCount(t.Ctx(), block.Hash())
+		// 	if err != nil {
+		// 		t.Fatalf("Unable to retrieve block transaction count: %v", err)
+		// 	}
+		// 	if count != uint(len(block.Transactions())) {
+		// 		t.Fatalf("Invalid block tx count, want %d, got %d", len(block.Transactions()), count)
+		// 	}
+		// 	return
+		// }
 
 		time.Sleep(time.Second)
 	}
