@@ -14,7 +14,6 @@
 #  - [x] HIVE_BOOTNODE                enode URL of the remote bootstrap node
 #  - [x] HIVE_NETWORK_ID              network ID number to use for the eth protocol
 #  - [x] HIVE_CHAIN_ID                chain ID is used in transaction signature process
-#  - [ ] HIVE_TESTNET                 whether testnet nonces (2^20) are needed
 #  - [ ] HIVE_NODETYPE                sync and pruning selector (archive, full, light)
 #
 # Forks:
@@ -42,7 +41,6 @@
 #
 #  - [x] HIVE_MINER                   enable mining. value is coinbase address.
 #  - [ ] HIVE_MINER_EXTRA             extra-data field to set for newly minted blocks
-#  - [ ] HIVE_SKIP_POW                if set, skip PoW verification during block import
 #  - [x] HIVE_LOGLEVEL                client loglevel (0-5)
 #  - [x] HIVE_GRAPHQL_ENABLED         enables graphql on port 8545
 
@@ -81,10 +79,18 @@ if [ "$HIVE_CLIQUE_PRIVATEKEY" != "" ]; then
   fi
 fi
 
-# Configure the genesis chain and use it as start block and dump it to stdout
-echo "Supplied genesis state:"
-jq -f /mapper.jq /genesis.json | tee /genesis-start.json
+# Configure the chain.
+jq -f /mapper.jq /genesis.json > /genesis-start.json
 FLAGS="$FLAGS --custom-network:/genesis-start.json"
+
+# Dump genesis.
+if [ "$HIVE_LOGLEVEL" -lt 4 ]; then
+  echo "Supplied genesis state (trimmed, use --sim.loglevel 4 or 5 for full output):"
+  jq 'del(.genesis.alloc[] | select(.balance == "0x123450000000000000000"))' /genesis-start.json
+else
+  echo "Supplied genesis state:"
+  cat /genesis-start.json
+fi
 
 # Don't immediately abort, some imports are meant to fail
 set +e
@@ -109,14 +115,17 @@ fi
 
 set -e
 
-# Configure RPC.
+# Configure RPC
+FLAGS="$FLAGS --http-address:0.0.0.0 --http-port:8545"
+FLAGS="$FLAGS --rpc --rpc-api:eth,debug"
+FLAGS="$FLAGS --ws --ws-api:eth,debug"
+
+# Configure graphql
 if [ "$HIVE_GRAPHQL_ENABLED" != "" ]; then
-  FLAGS="$FLAGS --graphql --graphql-address:0.0.0.0 --graphql-port:8545"
-else
-  FLAGS="$FLAGS --rpc --rpc-api:eth,debug --rpc-address:0.0.0.0 --rpc-port:8545"
-  FLAGS="$FLAGS --ws --ws-api:eth,debug --ws-address:0.0.0.0 --ws-port:8546"
+  FLAGS="$FLAGS --graphql"
 fi
 
+# Configure engine api
 if [ "$HIVE_TERMINAL_TOTAL_DIFFICULTY" != "" ]; then
   echo "0x7365637265747365637265747365637265747365637265747365637265747365" > /jwtsecret
   FLAGS="$FLAGS --engine-api:true --engine-api-address:0.0.0.0 --engine-api-port:8551 --jwt-secret:/jwtsecret"

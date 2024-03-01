@@ -10,7 +10,7 @@ RUN echo "Cloning: $github - $tag" \
     && apk add bash build-base ca-certificates git jq \
     && git clone --depth 1 --branch $tag https://github.com/$github \
     && cd erigon \
-    && make erigon \
+    && make BUILD_TAGS=nosqlite,noboltdb,nosilkworm erigon \
     && cp build/bin/erigon /usr/local/bin/erigon
 
 ## Final stage: Sets up the environment for running erigon
@@ -19,7 +19,7 @@ FROM alpine:latest
 # Copy compiled binary from builder
 COPY --from=builder /usr/local/bin/erigon /usr/local/bin/
 
-RUN apk add --no-cache bash gcc jq libstdc++
+RUN apk add --no-cache bash curl gcc jq libstdc++
 
 # Create version.txt
 RUN erigon --version | sed -e 's/erigon version \(.*\)/\1/' > /version.txt

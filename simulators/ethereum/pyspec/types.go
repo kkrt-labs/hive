@@ -1,7 +1,9 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
+	"fmt"
 	"math/big"
 
 	api "github.com/ethereum/go-ethereum/beacon/engine"
@@ -10,90 +12,126 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/tests"
+
+	"github.com/ethereum/hive/simulators/ethereum/engine/client"
+	typ "github.com/ethereum/hive/simulators/ethereum/engine/types"
 )
 
-type testcase struct {
+type Fail interface {
+	Fatalf(format string, args ...interface{})
+}
+
+type TestCase struct {
 	// test meta data
-	name       string
-	filepath   string
-	clientType string
-	failedErr  error
+	Name       string
+	FilePath   string
+	ClientType string
+	FailedErr  error
 	// test fixture data
-	fixture   fixtureTest
-	genesis   *core.Genesis
-	postAlloc *core.GenesisAlloc
-	payloads  []*engineNewPayload
+	*Fixture
+	FailCallback Fail
 }
 
-type fixtureTest struct {
-	json fixtureJSON
+func (tc *TestCase) Fatalf(format string, args ...interface{}) {
+	tc.FailedErr = fmt.Errorf(format, args...)
+	tc.FailCallback.Fatalf(format, args...)
 }
 
-func (t *fixtureTest) UnmarshalJSON(in []byte) error {
-	if err := json.Unmarshal(in, &t.json); err != nil {
-		return err
+type Fixture struct {
+	Fork              string              `json:"network"`
+	GenesisBlock      genesisBlock        `json:"genesisBlockHeader"`
+	EngineNewPayloads []*EngineNewPayload `json:"engineNewPayloads"`
+	EngineFcuVersion  int                 `json:"engineFcuVersion,string"`
+	Pre               core.GenesisAlloc   `json:"pre"`
+	PostAlloc         core.GenesisAlloc   `json:"postState"`
+	SyncPayload       *EngineNewPayload   `json:"syncPayload"`
+}
+
+func (f *Fixture) Genesis() *core.Genesis {
+	return &core.Genesis{
+		Config:        tests.Forks[f.Fork],
+		Coinbase:      f.GenesisBlock.Coinbase,
+		Difficulty:    f.GenesisBlock.Difficulty,
+		GasLimit:      f.GenesisBlock.GasLimit,
+		Timestamp:     f.GenesisBlock.Timestamp.Uint64(),
+		ExtraData:     f.GenesisBlock.ExtraData,
+		Mixhash:       f.GenesisBlock.MixHash,
+		Nonce:         f.GenesisBlock.Nonce.Uint64(),
+		BaseFee:       f.GenesisBlock.BaseFee,
+		BlobGasUsed:   f.GenesisBlock.BlobGasUsed,
+		ExcessBlobGas: f.GenesisBlock.ExcessBlobGas,
+		Alloc:         f.Pre,
+	}
+}
+
+func (f *Fixture) ValidatePost(ctx context.Context, engineClient client.EngineClient) error {
+	// check nonce, balance & storage of accounts in final block against fixture values
+	for address, account := range f.PostAlloc {
+		// get nonce & balance from last block (end of test execution)
+		gotNonce, errN := engineClient.NonceAt(ctx, address, nil)
+		gotBalance, errB := engineClient.BalanceAt(ctx, address, nil)
+		if errN != nil {
+			return fmt.Errorf("unable to call nonce from account: %v: %v", address, errN)
+		} else if errB != nil {
+			return fmt.Errorf("unable to call balance from account: %v: %v", address, errB)
+		}
+		// check final nonce & balance matches expected in fixture
+		if account.Nonce != gotNonce {
+			return fmt.Errorf(`nonce received from account %v doesn't match expected from fixture:
+			received from block: %v
+			expected in fixture: %v`, address, gotNonce, account.Nonce)
+		}
+		if account.Balance.Cmp(gotBalance) != 0 {
+			return fmt.Errorf(`balance received from account %v doesn't match expected from fixture:
+			received from block: %v
+			expected in fixture: %v`, address, gotBalance, account.Balance)
+		}
+		// check final storage
+		if len(account.Storage) > 0 {
+			// extract fixture storage keys
+			keys := make([]common.Hash, 0, len(account.Storage))
+			for key := range account.Storage {
+				keys = append(keys, key)
+			}
+			// get storage values for account with keys: keys
+			gotStorage, errS := engineClient.StorageAtKeys(ctx, address, keys, nil)
+			if errS != nil {
+				return fmt.Errorf("unable to get storage values from account: %v: %v", address, errS)
+			}
+			// check values in storage match with fixture
+			for _, key := range keys {
+				if account.Storage[key] != *gotStorage[key] {
+					return fmt.Errorf(`storage received from account %v doesn't match expected from fixture:
+					received from block:  %v
+					expected in fixture:  %v`, address, gotStorage[key], account.Storage[key])
+				}
+			}
+		}
 	}
 	return nil
 }
 
-type fixtureJSON struct {
-	Blocks     []block               `json:"blocks"`
-	Genesis    blockHeader           `json:"genesisBlockHeader"`
-	Pre        core.GenesisAlloc     `json:"pre"`
-	Post       core.GenesisAlloc     `json:"postState"`
-	BestBlock  common.UnprefixedHash `json:"lastblockhash"`
-	Network    string                `json:"network"`
-	SealEngine string                `json:"sealEngine"`
+//go:generate go run github.com/fjl/gencodec -type genesisBlock -field-override genesisBlockUnmarshaling -out gen_gb.go
+type genesisBlock struct {
+	Coinbase      common.Address   `json:"coinbase"`
+	Difficulty    *big.Int         `json:"difficulty"`
+	GasLimit      uint64           `json:"gasLimit"`
+	Timestamp     *big.Int         `json:"timestamp"`
+	ExtraData     []byte           `json:"extraData"`
+	MixHash       common.Hash      `json:"mixHash"`
+	Nonce         types.BlockNonce `json:"nonce"`
+	BaseFee       *big.Int         `json:"baseFeePerGas"`
+	BlobGasUsed   *uint64          `json:"blobGasUsed"`
+	ExcessBlobGas *uint64          `json:"excessBlobGas"`
+
+	Hash common.Hash `json:"hash"`
 }
 
-type block struct {
-	Rlp              string            `json:"rlp"`
-	BlockHeader      *blockHeader      `json:"blockHeader"`
-	Transactions     []transaction     `json:"transactions"`
-	UncleHeaders     []byte            `json:"uncleHeaders"`
-	Withdrawals      []withdrawals     `json:"withdrawals"`
-	Exception        string            `json:"expectException"`
-	EngineNewPayload *engineNewPayload `json:"engineNewPayload"`
-}
-
-//go:generate go run github.com/fjl/gencodec -type blockHeader -field-override blockHeaderUnmarshaling -out gen_bh.go
-//go:generate go run github.com/fjl/gencodec -type transaction -field-override transactionUnmarshaling -out gen_txs.go
-//go:generate go run github.com/fjl/gencodec -type withdrawals -field-override withdrawalsUnmarshaling -out gen_wds.go
-//go:generate go run github.com/fjl/gencodec -type engineNewPayload -field-override engineNewPayloadUnmarshaling -out gen_enp.go
-type blockHeader struct {
-	ParentHash         common.Hash      `json:"parentHash"`
-	UncleHash          common.Hash      `json:"sha3Uncles"`
-	UncleHashAlt       common.Hash      `json:"uncleHash"` // name in fixtures
-	Coinbase           common.Address   `json:"coinbase"`
-	CoinbaseAlt        common.Address   `json:"author"` // nethermind name
-	CoinbaseAlt2       common.Address   `json:"miner"`  // geth/besu name
-	StateRoot          common.Hash      `json:"stateRoot"`
-	TransactionTrie    common.Hash      `json:"transactionRoot"`
-	TransactionTrieAlt common.Hash      `json:"transactionTrie"` // name in fixtures
-	ReceiptTrie        common.Hash      `json:"receiptsRoot"`
-	ReceiptTrieAlt     common.Hash      `json:"receiptTrie"` // name in fixtures
-	Bloom              types.Bloom      `json:"bloom"`
-	Difficulty         *big.Int         `json:"difficulty"`
-	Number             *big.Int         `json:"number"`
-	GasLimit           uint64           `json:"gasLimit"`
-	GasUsed            uint64           `json:"gasUsed"`
-	Timestamp          *big.Int         `json:"timestamp"`
-	ExtraData          []byte           `json:"extraData"`
-	MixHash            common.Hash      `json:"mixHash"`
-	Nonce              types.BlockNonce `json:"nonce"`
-	BaseFee            *big.Int         `json:"baseFeePerGas"`
-	Hash               common.Hash      `json:"hash"`
-	WithdrawalsRoot    common.Hash      `json:"withdrawalsRoot"`
-	BlobGasUsed        *uint64          `json:"blobGasUsed"`
-	ExcessBlobGas      *uint64          `json:"excessBlobGas"`
-	BeaconRoot         *common.Hash     `json:"parentBeaconBlockRoot"`
-}
-
-type blockHeaderUnmarshaling struct {
+type genesisBlockUnmarshaling struct {
 	Difficulty    *math.HexOrDecimal256 `json:"difficulty"`
-	Number        *math.HexOrDecimal256 `json:"number"`
 	GasLimit      math.HexOrDecimal64   `json:"gasLimit"`
-	GasUsed       math.HexOrDecimal64   `json:"gasUsed"`
 	Timestamp     *math.HexOrDecimal256 `json:"timestamp"`
 	ExtraData     hexutil.Bytes         `json:"extraData"`
 	BaseFee       *math.HexOrDecimal256 `json:"baseFeePerGas"`
@@ -101,64 +139,120 @@ type blockHeaderUnmarshaling struct {
 	ExcessBlobGas *math.HexOrDecimal64  `json:"excessDataGas"`
 }
 
-type transaction struct {
-	Type                 *uint64           `json:"type"`
-	ChainId              *big.Int          `json:"chainId"`
-	Nonce                uint64            `json:"nonce"`
-	GasPrice             *big.Int          `json:"gasPrice"`
-	MaxPriorityFeePerGas *big.Int          `json:"maxPriorityFeePerGas"`
-	MaxFeePerGas         *big.Int          `json:"maxFeePerGas"`
-	Gas                  uint64            `json:"gasLimit"`
-	Value                *big.Int          `json:"value"`
-	Input                []byte            `json:"data"`
-	To                   string            `json:"to"`
-	Protected            bool              `json:"protected"`
-	AccessList           *types.AccessList `json:"accessList"`
-	SecretKey            *common.Hash      `json:"secretKey"`
-	V                    *big.Int          `json:"v"`
-	R                    *big.Int          `json:"r"`
-	S                    *big.Int          `json:"s"`
-	MaxFeePerDataGas     *big.Int          `json:"maxFeePerDataGas"`
-	BlobVersionedHashes  []*common.Hash    `json:"blobVersionedHashes"`
-}
-
-type transactionUnmarshaling struct {
-	Type                 *math.HexOrDecimal64  `json:"type"`
-	ChainId              *math.HexOrDecimal256 `json:"chainId"`
-	Nonce                math.HexOrDecimal64   `json:"nonce"`
-	GasPrice             *math.HexOrDecimal256 `json:"gasPrice"`
-	MaxPriorityFeePerGas *math.HexOrDecimal256 `json:"maxPriorityFeePerGas"`
-	MaxFeePerGas         *math.HexOrDecimal256 `json:"maxFeePerGas"`
-	Gas                  math.HexOrDecimal64   `json:"gasLimit"`
-	Value                *math.HexOrDecimal256 `json:"value"`
-	Input                hexutil.Bytes         `json:"data"`
-	V                    *math.HexOrDecimal256 `json:"v"`
-	R                    *math.HexOrDecimal256 `json:"r"`
-	S                    *math.HexOrDecimal256 `json:"s"`
-	MaxFeePerDataGas     *math.HexOrDecimal256 `json:"maxFeePerDataGas"`
-}
-
-type withdrawals struct {
-	Index          uint64         `json:"index"`
-	ValidatorIndex uint64         `json:"validatorIndex"`
-	Address        common.Address `json:"address"`
-	Amount         uint64         `json:"amount"`
-}
-
-type withdrawalsUnmarshaling struct {
-	Index          math.HexOrDecimal64 `json:"index"`
-	ValidatorIndex math.HexOrDecimal64 `json:"validatorIndex"`
-	Amount         math.HexOrDecimal64 `json:"amount"`
-}
-
-type engineNewPayload struct {
-	Payload               *api.ExecutableData `json:"executionPayload"`
+type EngineNewPayload struct {
+	ExecutionPayload      *api.ExecutableData `json:"executionPayload"`
 	BlobVersionedHashes   []common.Hash       `json:"expectedBlobVersionedHashes"`
 	ParentBeaconBlockRoot *common.Hash        `json:"parentBeaconBlockRoot"`
-	Version               uint64              `json:"version"`
-	ErrorCode             int64               `json:"errorCode,string"`
+	Version               math.HexOrDecimal64 `json:"version"`
+	ValidationError       *string             `json:"validationError"`
+	ErrorCode             int                 `json:"errorCode,string"`
 }
 
-type engineNewPayloadUnmarshaling struct {
-	Version math.HexOrDecimal64 `json:"version"`
+func (p *EngineNewPayload) ExecutableData() (*typ.ExecutableData, error) {
+	executableData, err := typ.FromBeaconExecutableData(p.ExecutionPayload)
+	if err != nil {
+		return nil, errors.New("executionPayload param within engineNewPayload is invalid")
+	}
+	executableData.VersionedHashes = &p.BlobVersionedHashes
+	executableData.ParentBeaconBlockRoot = p.ParentBeaconBlockRoot
+	return &executableData, nil
+}
+
+func (p *EngineNewPayload) Valid() bool {
+	return p.ErrorCode == 0 && p.ValidationError == nil
+}
+
+func (p *EngineNewPayload) ExpectedStatus() string {
+	if p.ValidationError != nil {
+		return "INVALID"
+	}
+	return "VALID"
+}
+
+func (p *EngineNewPayload) Execute(ctx context.Context, engineClient client.EngineClient) (api.PayloadStatusV1, rpc.Error) {
+	executableData, err := p.ExecutableData()
+	if err != nil {
+		panic(err)
+	}
+	status, err := engineClient.NewPayload(
+		ctx,
+		int(p.Version),
+		executableData,
+	)
+	return status, parseError(err)
+}
+
+func (p *EngineNewPayload) ExecuteValidate(ctx context.Context, engineClient client.EngineClient) (bool, error) {
+	plStatus, plErr := p.Execute(ctx, engineClient)
+	if err := p.ValidateRPCError(plErr); err != nil {
+		return false, err
+	} else if plErr != nil {
+		// Got an expected error and is already validated in ValidateRPCError
+		return false, nil
+	}
+	if plStatus.Status == "SYNCING" {
+		return true, nil
+	}
+	// Check payload status matches expected
+	if plStatus.Status != p.ExpectedStatus() {
+		return false, fmt.Errorf("payload status mismatch: got %s, want %s", plStatus.Status, p.ExpectedStatus())
+	}
+	return false, nil
+}
+
+func (p *EngineNewPayload) ForkchoiceValidate(ctx context.Context, engineClient client.EngineClient, fcuVersion int) (bool, error) {
+	response, err := engineClient.ForkchoiceUpdated(ctx, fcuVersion, &api.ForkchoiceStateV1{HeadBlockHash: p.ExecutionPayload.BlockHash}, nil)
+	if err != nil {
+		return false, err
+	}
+	if response.PayloadStatus.Status == "SYNCING" {
+		return true, nil
+	}
+	if response.PayloadStatus.Status != p.ExpectedStatus() {
+		return false, fmt.Errorf("forkchoice update status mismatch: got %s, want %s", response.PayloadStatus.Status, p.ExpectedStatus())
+	}
+	return false, nil
+}
+
+type HTTPErrorWithCode struct {
+	rpc.HTTPError
+}
+
+func (e HTTPErrorWithCode) ErrorCode() int {
+	return e.StatusCode
+}
+
+func parseError(plErr interface{}) rpc.Error {
+	if plErr == nil {
+		return nil
+	}
+	rpcErr, isRpcErr := plErr.(rpc.Error)
+	if isRpcErr {
+		return rpcErr
+	}
+	httpErr, isHttpErr := plErr.(rpc.HTTPError)
+	if isHttpErr {
+		return HTTPErrorWithCode{httpErr}
+	}
+	panic("unable to parse")
+}
+
+// checks for RPC errors and compares error codes if expected.
+func (p *EngineNewPayload) ValidateRPCError(rpcErr rpc.Error) error {
+	if rpcErr == nil && p.ErrorCode == 0 {
+		return nil
+	}
+	if rpcErr == nil && p.ErrorCode != 0 {
+		return fmt.Errorf("expected error code %d but received no error", p.ErrorCode)
+	}
+	if rpcErr != nil && p.ErrorCode == 0 {
+		return fmt.Errorf("expected no error code but received %d", rpcErr.ErrorCode())
+	}
+	if rpcErr != nil && p.ErrorCode != 0 {
+		plErrCode := rpcErr.ErrorCode()
+		if plErrCode != p.ErrorCode {
+			return fmt.Errorf("error code mismatch: got: %d, want: %d", plErrCode, p.ErrorCode)
+		}
+	}
+	return nil
 }

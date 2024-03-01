@@ -21,15 +21,15 @@
 #  - HIVE_FORK_PETERSBURG      block number for ConstantinopleFix/Petersburg transition
 #  - HIVE_FORK_ISTANBUL        block number for Istanbul transition
 #  - HIVE_FORK_MUIR_GLACIER    block number for MuirGlacier transition
+#  - HIVE_SHANGHAI_TIMESTAMP   timestamp for Shanghai transition
+#  - HIVE_CANCUN_TIMESTAMP     timestamp for Cancun transition
 #  - HIVE_LOGLEVEL             client log level
 #
 # These flags are NOT supported by reth
 #
-#  - HIVE_TESTNET              whether testnet nonces (2^20) are needed
 #  - HIVE_GRAPHQL_ENABLED      turns on GraphQL server
 #  - HIVE_CLIQUE_PRIVATEKEY    private key for clique mining
 #  - HIVE_NODETYPE             sync and pruning selector (archive, full, light)
-#  - HIVE_SKIP_POW             If set, skip PoW verification during block import
 #  - HIVE_MINER                address to credit with mining rewards
 #  - HIVE_MINER_EXTRA          extra-data field to set for newly minted blocks
 
@@ -50,8 +50,9 @@ case "$HIVE_LOGLEVEL" in
 esac
 
 # Create the data directory.
-mkdir /reth-hive-datadir
-FLAGS="$FLAGS --datadir /reth-hive-datadir"
+DATADIR="/reth-hive-datadir"
+mkdir $DATADIR
+FLAGS="$FLAGS --datadir $DATADIR"
 
 # TODO If a specific network ID is requested, use that
 #if [ "$HIVE_NETWORK_ID" != "" ]; then
@@ -64,9 +65,14 @@ FLAGS="$FLAGS --datadir /reth-hive-datadir"
 mv /genesis.json /genesis-input.json
 jq -f /mapper.jq /genesis-input.json > /genesis.json
 
-# Dump genesis
-echo "Supplied genesis state:"
-cat /genesis.json
+# Dump genesis. 
+if [ "$HIVE_LOGLEVEL" -lt 4 ]; then
+    echo "Supplied genesis state (trimmed, use --sim.loglevel 4 or 5 for full output):"
+    jq 'del(.alloc[] | select(.balance == "0x123450000000000000000"))' /genesis.json
+else
+    echo "Supplied genesis state:"
+    cat /genesis.json
+fi
 
 echo "Command flags till now:"
 echo $FLAGS
@@ -74,6 +80,9 @@ echo $FLAGS
 # Initialize the local testchain with the genesis state
 echo "Initializing database with genesis state..."
 $reth init $FLAGS --chain /genesis.json
+
+# Make sure pruner doesn't start
+echo -e "[prune]\\nblock_interval = 500_000" >> $DATADIR/reth.toml
 
 # make sure we use the same genesis each time
 FLAGS="$FLAGS --chain /genesis.json"
