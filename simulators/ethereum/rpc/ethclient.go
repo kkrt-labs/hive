@@ -229,7 +229,6 @@ func balanceAndNonceAtTest(t *TestEnv) {
 // Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
 // examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
 //
-//
 // genesisByHash fetches the known genesis header and compares
 // it against the genesis file to determine if block fields are
 // returned correct.
@@ -249,7 +248,6 @@ func genesisHeaderByHashTest(t *TestEnv) {
 // Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
 // examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
 //
-//
 // headerByNumberTest fetched the known genesis header and compares
 // it against the genesis file to determine if block fields are
 // returned correct.
@@ -260,15 +258,14 @@ func genesisHeaderByNumberTest(t *TestEnv) {
 	if err != nil {
 		t.Fatalf("Unable to fetch genesis block: %v", err)
 	}
-// 	if d := diff(gblock.Header(), headerByNum); d != "" {
-// 		t.Fatal("genesis header reported by node differs from expected header:\n", d)
-// 	}
+	//	if d := diff(gblock.Header(), headerByNum); d != "" {
+	//		t.Fatal("genesis header reported by node differs from expected header:\n", d)
+	//	}
 }
 
 // 🚧 WARNING KAKAROT 🚧
 // Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
 // examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
-//
 //
 // genesisBlockByHashTest fetched the known genesis block and compares it against
 // the genesis file to determine if block fields are returned correct.
@@ -287,7 +284,6 @@ func genesisBlockByHashTest(t *TestEnv) {
 // 🚧 WARNING KAKAROT 🚧
 // Due to the fact that we have some differences in how we handle the genesis block, we can't use this test.
 // examples: difficulty is hardcoded to 0, gasLimit is fixed, etc.
-//
 //
 // genesisBlockByNumberTest retrieves block 0 since that is the only block
 // that is known through the genesis.json file and tests if block
@@ -332,9 +328,9 @@ func canonicalChainTest(t *TestEnv) {
 		// Whereas our blocks have a Starknet blockhash.
 		// For now we skip this consistency check
 		// if childBlock != nil {
-			// if childBlock.ParentHash() != block.Hash() {
-			// 	t.Errorf("Canonical chain broken on %d-%d / %x-%x", block.NumberU64(), childBlock.NumberU64(), block.Hash(), childBlock.Hash())
-			// }
+		// if childBlock.ParentHash() != block.Hash() {
+		// 	t.Errorf("Canonical chain broken on %d-%d / %x-%x", block.NumberU64(), childBlock.NumberU64(), block.Hash(), childBlock.Hash())
+		// }
 		// }
 
 		// try to fetch all txs and receipts and do some basic validation on them
@@ -485,9 +481,13 @@ func deployContractOutOfGasTest(t *TestEnv) {
 	if receipt.ContractAddress != contractAddress {
 		t.Errorf("receipt has contract address %x, want %x", receipt.ContractAddress, contractAddress)
 	}
-	if receipt.BlockHash == (common.Hash{}) {
-		t.Errorf("receipt has empty block hash", receipt.BlockHash)
-	}
+	// 🚧 KAKAROT WARNING
+	// Because we index the Starknet blocks using the Pending state, this causes
+	// the block hash to be 0x000...0000. The below check verifies that the block
+	// hash isn't 0x000...0000, so we check it.
+	// if receipt.BlockHash == (common.Hash{}) {
+	// 	t.Errorf("receipt has empty block hash", receipt.BlockHash)
+	// }
 	// Check that nothing is deployed at the contract address.
 	code, err := t.Eth.CodeAt(t.Ctx(), contractAddress, nil)
 	if err != nil {
