@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/hive/hivesim"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -20,6 +19,25 @@ import (
 )
 
 var (
+	clientEnv = hivesim.Params{
+		"HIVE_NODETYPE":       "full",
+		"HIVE_NETWORK_ID":     "1337",
+		"HIVE_CHAIN_ID":       "1337",
+		"HIVE_FORK_HOMESTEAD": "0",
+		//"HIVE_FORK_DAO_BLOCK":      2000,
+		"HIVE_FORK_TANGERINE":                   "0",
+		"HIVE_FORK_SPURIOUS":                    "0",
+		"HIVE_FORK_BYZANTIUM":                   "0",
+		"HIVE_FORK_CONSTANTINOPLE":              "0",
+		"HIVE_FORK_PETERSBURG":                  "0",
+		"HIVE_FORK_ISTANBUL":                    "0",
+		"HIVE_FORK_BERLIN":                      "0",
+		"HIVE_FORK_LONDON":                      "0",
+		"HIVE_SHANGHAI_TIMESTAMP":               "0",
+		"HIVE_TERMINAL_TOTAL_DIFFICULTY":        "0",
+		"HIVE_TERMINAL_TOTAL_DIFFICULTY_PASSED": "1",
+	}
+
 	files = map[string]string{
 		"genesis.json": "./tests/genesis.json",
 		"chain.rlp":    "./tests/chain.rlp",
@@ -27,13 +45,6 @@ var (
 )
 
 func main() {
-	// Load fork environment.
-	var clientEnv hivesim.Params
-	err := common.LoadJSON("tests/forkenv.json", &clientEnv)
-	if err != nil {
-		panic(err)
-	}
-
 	// Run the test suite.
 	suite := hivesim.Suite{
 		Name: "rpc-compat",
@@ -49,7 +60,6 @@ conformance with the execution API specification.`[1:],
 		Parameters:  clientEnv,
 		Files:       files,
 		Run: func(t *hivesim.T, c *hivesim.Client) {
-			sendForkchoiceUpdated(t, c)
 			runAllTests(t, c, c.Type)
 		},
 		AlwaysRun: true,
@@ -157,22 +167,4 @@ func postHttp(c *http.Client, url string, d io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 	return io.ReadAll(resp.Body)
-}
-
-// sendForkchoiceUpdated delivers the initial FcU request to the client.
-func sendForkchoiceUpdated(t *hivesim.T, client *hivesim.Client) {
-	var request struct {
-		Method string
-		Params []any
-	}
-	if err := common.LoadJSON("tests/headfcu.json", &request); err != nil {
-		t.Fatal("error loading forkchoiceUpdated:", err)
-	}
-	t.Logf("sending %s: %v", request.Method, request.Params)
-	var resp any
-	err := client.EngineAPI().Call(&resp, request.Method, request.Params...)
-	if err != nil {
-		t.Fatal("client rejected forkchoiceUpdated:", err)
-	}
-	t.Logf("response: %v", resp)
 }
