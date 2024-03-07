@@ -123,13 +123,8 @@ func runTest(t *hivesim.T, c *hivesim.Client, test *rpcTest) error {
 				errorRedacted = true
 			}
 
-			// 🚧 WARNING KAKAROT
-			// Due to the difference in block hash computation for Kakarot, we remove the block hash from the response
-			// and the expected data. This is a temporary fix until we can figure out a better way to handle this.
-			if gjson.Get(resp, "result.blockHash").Exists() && gjson.Get(expectedData, "result.blockHash").Exists() {
-				resp, _ = sjson.Delete(resp, "result.blockHash")
-				expectedData, _ = sjson.Delete(expectedData, "result.blockHash")
-			}
+			// Clean the response and expected data for Kakarot
+			resp, expectedData = cleanKakarot(resp, expectedData)
 
 			// Compare responses.
 			d, err := diff.New().Compare([]byte(resp), []byte(expectedData))
@@ -175,4 +170,40 @@ func postHttp(c *http.Client, url string, d io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// 🚧 WARNING KAKAROT
+// cleanKakarot modifies the response and expected data in order
+// to be compatible with Kakarot. This includes :
+//   - removing any block hash field.
+func cleanKakarot(resp, expectedData string) (string, string) {
+	if gjson.Get(resp, "result.blockHash").Exists() && gjson.Get(expectedData, "result.blockHash").Exists() {
+		resp = deleteField(resp, "result.blockHash")
+		expectedData = deleteField(expectedData, "result.blockHash")
+	}
+
+	if gjson.Get(resp, "result.hash").Exists() && gjson.Get(expectedData, "result.hash").Exists() {
+		resp = deleteField(resp, "result.hash")
+		expectedData = deleteField(expectedData, "result.hash")
+	}
+
+	if gjson.Get(resp, "result.transactions").Exists() && gjson.Get(expectedData, "result.transactions").Exists() {
+		transactions := gjson.Get(resp, "result.transactions").Array()
+		for i := range transactions {
+			resp, _ = sjson.Delete(resp, fmt.Sprintf("result.transactions.%d.blockHash", i))
+		}
+
+		transactions = gjson.Get(expectedData, "result.transactions").Array()
+		for i := range transactions {
+			expectedData, _ = sjson.Delete(resp, fmt.Sprintf("result.transactions.%d.blockHash", i))
+		}
+	}
+
+	return resp, expectedData
+}
+
+// deleteField removes the field from the JSON string.
+func deleteField(data, field string) string {
+	data, _ = sjson.Delete(data, field)
+	return data
 }
