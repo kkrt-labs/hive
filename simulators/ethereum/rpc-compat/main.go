@@ -123,6 +123,14 @@ func runTest(t *hivesim.T, c *hivesim.Client, test *rpcTest) error {
 				errorRedacted = true
 			}
 
+			// 🚧 WARNING KAKAROT
+			// Due to the difference in block hash computation for Kakarot, we remove the block hash from the response
+			// and the expected data. This is a temporary fix until we can figure out a better way to handle this.
+			if gjson.Get(resp, "result.blockHash").Exists() && gjson.Get(expectedData, "result.blockHash").Exists() {
+				resp, _ = sjson.Delete(resp, "result.blockHash")
+				expectedData, _ = sjson.Delete(expectedData, "result.blockHash")
+			}
+
 			// Compare responses.
 			d, err := diff.New().Compare([]byte(resp), []byte(expectedData))
 			if err != nil {
