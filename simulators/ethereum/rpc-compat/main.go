@@ -75,7 +75,7 @@ func runAllTests(t *hivesim.T, c *hivesim.Client, clientName string) {
 	for _, test := range tests {
 		test := test
 		t.Run(hivesim.TestSpec{
-			Name:        fmt.Sprintf("%s (%s)", test.name, clientName),
+			Name:        test.name,
 			Description: test.comment,
 			Run: func(t *hivesim.T) {
 				if err := runTest(t, c, &test); err != nil {

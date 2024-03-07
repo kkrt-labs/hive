@@ -113,18 +113,6 @@ interacting with one.`[1:],
 		AlwaysRun:   true,
 	})
 
-	// Add tests to launch LES servers.
-	serverParams := clientEnv.Set("HIVE_LES_SERVER", "1")
-	suite.Add(hivesim.ClientTestSpec{
-		Role:        "eth1_les_server",
-		Name:        "CLIENT as LES server",
-		Description: "This test launches an LES server.",
-		Parameters:  serverParams,
-		Files:       files,
-		Run:         func(t *hivesim.T, srv *hivesim.Client) { runLESTests(t, srv) },
-		AlwaysRun:   true,
-	})
-
 	sim := hivesim.New()
 	hivesim.MustRunSuite(sim, suite)
 }
