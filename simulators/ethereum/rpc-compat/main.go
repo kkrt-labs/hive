@@ -213,6 +213,7 @@ func cleanBlockData(resp, expectedData string) (string, string) {
 // cleanReceiptsData modifies the response and expected data if the returned values match a []receipt.
 func cleanReceiptsData(resp, expectedData string) (string, string) {
 	receipts := gjson.Get(resp, "result").Array()
+	// TODO: remove the gas removal part once gas accounting is fixed in Kakarot
 	for i := range receipts {
 		var fields = []string{fmt.Sprintf("result.%d.blockHash", i), fmt.Sprintf("result.%d.cumulativeGasUsed", i), fmt.Sprintf("result.%d.gasUsed", i)}
 		resp = deleteFields(resp, fields...)
@@ -239,6 +240,7 @@ func cleanTransactionData(resp, expectedData string) (string, string) {
 // 🚧 WARNING KAKAROT
 // cleanReceiptData modifies the response and expected data if the returned values match a receipt.
 func cleanReceiptData(resp, expectedData string) (string, string) {
+	// TODO: remove this part once gas accounting is fixed in Kakarot
 	resp = deleteFields(resp, "result.gasUsed", "result.cumulativeGasUsed")
 	expectedData = deleteFields(expectedData, "result.gasUsed", "result.cumulativeGasUsed")
 
