@@ -177,33 +177,98 @@ func postHttp(c *http.Client, url string, d io.Reader) ([]byte, error) {
 // to be compatible with Kakarot. This includes :
 //   - removing any block hash field.
 func cleanKakarot(resp, expectedData string) (string, string) {
-	if gjson.Get(resp, "result.blockHash").Exists() && gjson.Get(expectedData, "result.blockHash").Exists() {
-		resp = deleteField(resp, "result.blockHash")
-		expectedData = deleteField(expectedData, "result.blockHash")
-	}
+	resp, expectedData = cleanTransactionData(resp, expectedData)
+	resp, expectedData = cleanReceiptData(resp, expectedData)
 
-	if gjson.Get(resp, "result.hash").Exists() && gjson.Get(expectedData, "result.hash").Exists() {
-		resp = deleteField(resp, "result.hash")
-		expectedData = deleteField(expectedData, "result.hash")
-	}
+	resp, expectedData = cleanBlockData(resp, expectedData)
+
+	resp, expectedData = cleanReceiptsData(resp, expectedData)
+
+	return resp, expectedData
+}
+
+// 🚧 WARNING KAKAROT
+// cleanBlockData modifies the response and expected data if the returned values match a block information.
+func cleanBlockData(resp, expectedData string) (string, string) {
+	var fields = []string{"result.hash", "result.parentHash", "result.timestamp", "result.baseFeePerGas", "result.difficulty", "result.gasLimit", "result.miner", "result.size", "result.stateRoot", "result.totalDifficulty", "result.withdrawals"}
+	resp = deleteFields(resp, fields...)
+	expectedData = deleteFields(expectedData, fields...)
 
 	if gjson.Get(resp, "result.transactions").Exists() && gjson.Get(expectedData, "result.transactions").Exists() {
 		transactions := gjson.Get(resp, "result.transactions").Array()
 		for i := range transactions {
-			resp, _ = sjson.Delete(resp, fmt.Sprintf("result.transactions.%d.blockHash", i))
+			resp = deleteField(resp, fmt.Sprintf("result.transactions.%d.blockHash", i))
 		}
 
 		transactions = gjson.Get(expectedData, "result.transactions").Array()
 		for i := range transactions {
-			expectedData, _ = sjson.Delete(resp, fmt.Sprintf("result.transactions.%d.blockHash", i))
+			expectedData = deleteField(expectedData, fmt.Sprintf("result.transactions.%d.blockHash", i))
 		}
 	}
 
 	return resp, expectedData
 }
 
+// 🚧 WARNING KAKAROT
+// cleanReceiptsData modifies the response and expected data if the returned values match a []receipt.
+func cleanReceiptsData(resp, expectedData string) (string, string) {
+	receipts := gjson.Get(resp, "result").Array()
+	for i := range receipts {
+		var fields = []string{fmt.Sprintf("result.%d.blockHash", i), fmt.Sprintf("result.%d.cumulativeGasUsed", i), fmt.Sprintf("result.%d.gasUsed", i)}
+		resp = deleteFields(resp, fields...)
+	}
+
+	receipts = gjson.Get(expectedData, "result").Array()
+	for i := range receipts {
+		var fields = []string{fmt.Sprintf("result.%d.blockHash", i), fmt.Sprintf("result.%d.cumulativeGasUsed", i), fmt.Sprintf("result.%d.gasUsed", i)}
+		expectedData = deleteFields(expectedData, fields...)
+	}
+
+	return resp, expectedData
+}
+
+// 🚧 WARNING KAKAROT
+// cleanTransactionData modifies the response and expected data if the returned values match a receipt.
+func cleanTransactionData(resp, expectedData string) (string, string) {
+	resp = deleteField(resp, "result.blockHash")
+	expectedData = deleteField(expectedData, "result.blockHash")
+
+	return resp, expectedData
+}
+
+// 🚧 WARNING KAKAROT
+// cleanReceiptData modifies the response and expected data if the returned values match a receipt.
+func cleanReceiptData(resp, expectedData string) (string, string) {
+	resp = deleteFields(resp, "result.gasUsed", "result.cumulativeGasUsed")
+	expectedData = deleteFields(expectedData, "result.gasUsed", "result.cumulativeGasUsed")
+
+	if gjson.Get(resp, "result.logs").Exists() && gjson.Get(expectedData, "result.logs").Exists() {
+		logs := gjson.Get(resp, "result.logs").Array()
+		for i := range logs {
+			resp = deleteField(resp, fmt.Sprintf("result.logs.%d.blockHash", i))
+		}
+
+		logs = gjson.Get(expectedData, "result.logs").Array()
+		for i := range logs {
+			expectedData = deleteField(expectedData, fmt.Sprintf("result.logs.%d.blockHash", i))
+		}
+	}
+
+	return resp, expectedData
+}
+
+// deleteFields removes the fields from the JSON string.
+func deleteFields(data string, fields ...string) string {
+	for _, field := range fields {
+		data = deleteField(data, field)
+	}
+	return data
+}
+
 // deleteField removes the field from the JSON string.
 func deleteField(data, field string) string {
-	data, _ = sjson.Delete(data, field)
+	if gjson.Get(data, field).Exists() {
+		data, _ = sjson.Delete(data, field)
+	}
 	return data
 }
