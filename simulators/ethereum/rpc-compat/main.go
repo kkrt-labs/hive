@@ -191,7 +191,20 @@ func cleanKakarot(resp, expectedData string) (string, string) {
 // cleanBlockData modifies the response and expected data if the returned values match a block information.
 func cleanBlockData(resp, expectedData string) (string, string) {
 	// TODO: remove the miner, gasLimit and baseFeePerGas skip once we have a way to set these in Kakarot.
-	var fields = []string{"result.hash", "result.parentHash", "result.timestamp", "result.baseFeePerGas", "result.difficulty", "result.gasLimit", "result.miner", "result.size", "result.stateRoot", "result.totalDifficulty", "result.withdrawals"}
+	var fields = []string{
+		"result.hash",
+		"result.parentHash",
+		"result.timestamp",
+		"result.baseFeePerGas",
+		"result.difficulty",
+		"result.gasLimit",
+		"result.miner",
+		"result.size",
+		"result.stateRoot",
+		"result.totalDifficulty",
+		"result.withdrawals",
+		"result.withdrawalsRoot",
+	}
 	resp = deleteFields(resp, fields...)
 	expectedData = deleteFields(expectedData, fields...)
 
