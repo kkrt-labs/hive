@@ -57,10 +57,10 @@ var tests = []testSpec{
 	{Name: "http/GenesisHeaderByHash", Run: genesisHeaderByHashTest},           // ok
 	{Name: "http/GenesisHeaderByNumber", Run: genesisHeaderByNumberTest},       // ok
 	{Name: "http/Receipt", Run: receiptTest},                                   // ok
-	// {Name: "http/SyncProgress", Run: syncProgressTest},                         // nok
-	{Name: "http/TransactionCount", Run: transactionCountTest},     // ok
-	{Name: "http/TransactionInBlock", Run: transactionInBlockTest}, // ok
-	{Name: "http/TransactionReceipt", Run: TransactionReceiptTest}, // ok
+	{Name: "http/SyncProgress", Run: syncProgressTest},                         // ok
+	{Name: "http/TransactionCount", Run: transactionCountTest},                 // ok
+	{Name: "http/TransactionInBlock", Run: transactionInBlockTest},             // ok
+	{Name: "http/TransactionReceipt", Run: TransactionReceiptTest},             // ok
 
 	// // HTTP ABI tests.
 	{Name: "http/ABICall", Run: callContractTest},         // ok
