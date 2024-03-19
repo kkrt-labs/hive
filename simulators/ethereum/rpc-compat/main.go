@@ -18,6 +18,8 @@ import (
 	"github.com/yudai/gojsondiff/formatter"
 )
 
+const EMPTY_ROOT = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+
 var (
 	clientEnv = hivesim.Params{
 		"HIVE_NODETYPE":       "full",
@@ -203,8 +205,15 @@ func cleanBlockData(resp, expectedData string) (string, string) {
 		"result.stateRoot",
 		"result.totalDifficulty",
 		"result.withdrawals",
-		"result.withdrawalsRoot",
 	}
+
+	if expected := gjson.Get(expectedData, "result.withdrawalsRoot"); expected.Exists() {
+		expectedRoot := expected.String()
+		if expectedRoot != EMPTY_ROOT {
+			fields = append(fields, "result.withdrawalsRoot")
+		}
+	}
+
 	resp = deleteFields(resp, fields...)
 	expectedData = deleteFields(expectedData, fields...)
 
