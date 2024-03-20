@@ -272,10 +272,6 @@ func cleanTransactionData(resp, expectedData string) (string, string) {
 // 🚧 WARNING KAKAROT
 // cleanReceiptData modifies the response and expected data if the returned values match a receipt.
 func cleanReceiptData(resp, expectedData string) (string, string) {
-	// TODO: remove this part once gas accounting is fixed in Kakarot
-	resp = deleteFields(resp, "result.gasUsed", "result.cumulativeGasUsed")
-	expectedData = deleteFields(expectedData, "result.gasUsed", "result.cumulativeGasUsed")
-
 	if gjson.Get(resp, "result.logs").Exists() && gjson.Get(expectedData, "result.logs").Exists() {
 		logs := gjson.Get(resp, "result.logs").Array()
 		for i := range logs {
