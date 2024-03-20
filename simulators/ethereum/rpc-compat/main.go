@@ -179,6 +179,15 @@ func postHttp(c *http.Client, url string, d io.Reader) ([]byte, error) {
 // to be compatible with Kakarot. This includes :
 //   - removing any block hash field.
 func cleanKakarot(resp, expectedData string) (string, string) {
+	// We remove the data field from the error if it exists in both the response and expected data.
+	// According to <https://www.jsonrpc.org/specification>, data is a reserved field for additional
+	// information from the server on the error. It can be omitted. We remove it from the
+	// response and expected data to make the comparison easier.
+	if gjson.Get(resp, "error").Exists() && gjson.Get(expectedData, "error").Exists() {
+		resp, _ = sjson.Delete(resp, "error.data")
+		expectedData, _ = sjson.Delete(expectedData, "error.data")
+	}
+
 	resp, expectedData = cleanTransactionData(resp, expectedData)
 	resp, expectedData = cleanReceiptData(resp, expectedData)
 
