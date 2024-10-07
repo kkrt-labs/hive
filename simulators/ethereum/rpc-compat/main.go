@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/hive/hivesim"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -265,6 +266,36 @@ func cleanReceiptsData(resp, expectedData string) (string, string) {
 func cleanTransactionData(resp, expectedData string) (string, string) {
 	resp = deleteField(resp, "result.blockHash")
 	expectedData = deleteField(expectedData, "result.blockHash")
+
+	// Checksum transformation for 'from' and 'to' fields in the response
+	// To be safe, we checksum both the response and expected data.
+	fromResp := gjson.Get(resp, "result.from").String()
+	toResp := gjson.Get(resp, "result.to").String()
+
+	if fromResp != "" {
+		checksumFrom := common.HexToAddress(fromResp).Hex()
+		resp, _ = sjson.Set(resp, "result.from", checksumFrom)
+	}
+
+	if toResp != "" {
+		checksumTo := common.HexToAddress(toResp).Hex()
+		resp, _ = sjson.Set(resp, "result.to", checksumTo)
+	}
+
+	// Checksum transformation for 'from' and 'to' fields in the expected data
+	// To be safe, we checksum both the response and expected data.
+	fromExpected := gjson.Get(expectedData, "result.from").String()
+	toExpected := gjson.Get(expectedData, "result.to").String()
+
+	if fromExpected != "" {
+		checksumFrom := common.HexToAddress(fromExpected).Hex()
+		expectedData, _ = sjson.Set(expectedData, "result.from", checksumFrom)
+	}
+
+	if toExpected != "" {
+		checksumTo := common.HexToAddress(toExpected).Hex()
+		expectedData, _ = sjson.Set(expectedData, "result.to", checksumTo)
+	}
 
 	return resp, expectedData
 }
